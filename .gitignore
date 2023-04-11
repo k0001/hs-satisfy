@@ -1,0 +1,7 @@
+*~
+.*.sw[a-p]
+tmp
+result
+result-*
+dist-newstyle
+cabal.project.local

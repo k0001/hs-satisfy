@@ -1,0 +1,50 @@
+cabal-version: 2.4
+name: satisfy
+version: 0.1
+license: Apache-2.0
+license-file: LICENSE.md
+extra-source-files: README.md CHANGELOG.md
+author: Renzo Carbonara
+maintainer: renλren.zone
+copyright: Copyright (c) Renzo Carbonara 2023
+category: Logic
+build-type: Simple
+synopsis: Term-level satisfaction of type-level predicates.
+description: Term-level satisfaction of type-level predicates.
+homepage: https://gitlab.com/k0001/hs-satisfy
+bug-reports: https://gitlab.com/k0001/hs-satisfy/issues
+tested-with: GHC == 9.4.3
+
+
+library
+  default-language: GHC2021
+  default-extensions:
+    DataKinds
+    DerivingStrategies
+    TypeFamilies
+    RoleAnnotations
+  build-depends:
+    base == 4.*,
+    constraints,
+    kind-integer,
+    kind-rational,
+    singletons,
+  hs-source-dirs: lib
+  exposed-modules: Satisfy
+  ghc-options: -O2 -Wall
+
+test-suite test
+  default-language: GHC2021
+  default-extensions:
+    DataKinds
+  type: exitcode-stdio-1.0
+  main-is: test/test.hs
+  build-depends:
+    base,
+    constraints,
+    kind-integer,
+    kind-rational,
+    satisfy,
+    singletons,
+  ghc-options: -O2 -Wall -threaded -with-rtsopts=-N
+
