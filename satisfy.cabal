@@ -15,7 +15,6 @@ homepage: https://gitlab.com/k0001/hs-satisfy
 bug-reports: https://gitlab.com/k0001/hs-satisfy/issues
 tested-with: GHC == 9.4.3
 
-
 library
   default-language: GHC2021
   default-extensions:
@@ -29,6 +28,7 @@ library
     kind-integer,
     kind-rational,
     singletons,
+    singletons-base,
   hs-source-dirs: lib
   exposed-modules: Satisfy
   ghc-options: -O2 -Wall
