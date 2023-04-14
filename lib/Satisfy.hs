@@ -114,6 +114,7 @@ class (Predicate p k, Satisfying p s) => Satisfy p (s :: k) where
 
 --------------------------------------------------------------------------------
 
+{-
 -- | All scrutiness satisfy the 'True' predicate.
 instance Satisfy 'True s where
   type IsSatisfied 'True s = 'True
@@ -121,19 +122,21 @@ instance Satisfy 'True s where
 -- | All scrutiness satisfy the 'True' predicate.
 instance Predicate 'True k where
   satisfy = Right . Satisfied
+-}
 
 --
 
--- | Alternative spelling for the 'True' predicate.
+-- | All scrutiness satisfy the @()@ predicate.
 instance Satisfy () s where
   type IsSatisfied () s = 'True
 
--- | Alternative spelling for the 'True' predicate.
+-- | All scrutiness satisfy the @()@ predicate.
 instance Predicate () k where
   satisfy = Right . Satisfied
 
 --
 
+{-
 -- | No scrutiness satisfy the 'False' predicate.
 instance Satisfy 'False s where
   type IsSatisfied 'False s = 'False
@@ -141,14 +144,15 @@ instance Satisfy 'False s where
 -- | No scrutiness satisfy the 'False' predicate.
 instance Predicate 'False k where
   satisfy = Left . Unsatisfied
+-}
 
 --
 
--- | Alternative spelling for the 'False' predicate.
+-- | No scrutiness satisfy the 'Void' predicate.
 instance Satisfy Void s where
   type IsSatisfied Void s = 'False
 
--- | Alternative spelling for the 'False' predicate.
+-- | No scrutiness satisfy the 'Void' predicate.
 instance Predicate Void k where
   satisfy = Left . Unsatisfied
 
@@ -177,6 +181,7 @@ data p `AND` q
 type role AND nominal nominal
 infixl 7 `AND`
 
+
 instance (Predicate p k, Predicate q k, Satisfying (AND p q) s)
   => Satisfy (AND p q) (s :: k) where
   type IsSatisfied (AND p q) s = IsSatisfied p s && IsSatisfied q s
@@ -192,6 +197,7 @@ instance (Predicate p k, Predicate q k) => Predicate (AND p q) k where
 
 --
 
+{-
 -- | Alternative spelling for the 'AND' predicate.
 instance (Predicate p k, Predicate q k, Satisfying (p, q) s)
   => Satisfy (p, q) (s :: k) where
@@ -206,6 +212,7 @@ instance (Predicate p k, Predicate q k) => Predicate (p, q) k where
     (Left  Unsatisfied{}, Right Satisfied{}  ) -> Left  (Unsatisfied s)
     (Right Satisfied{}  , Left  Unsatisfied{}) -> Left  (Unsatisfied s)
     (Right Satisfied{}  , Right Satisfied{}  ) -> Right (Satisfied   s)
+-}
 
 --
 
@@ -230,6 +237,7 @@ instance (Predicate p k, Predicate q k) => Predicate (OR p q) k where
 
 --
 
+{-
 -- | Alternative spelling for the 'OR' predicate.
 instance (Predicate p k, Predicate q k, Satisfying (Either p q) s)
   => Satisfy (Either p q) (s :: k) where
@@ -244,6 +252,7 @@ instance (Predicate p k, Predicate q k) => Predicate (Either p q) k where
     (Left  Unsatisfied{}, Right Satisfied  {}) -> Right (Satisfied   s)
     (Right Satisfied  {}, Left  Unsatisfied{}) -> Right (Satisfied   s)
     (Right Satisfied  {}, Right Satisfied  {}) -> Right (Satisfied   s)
+-}
 
 --
 
@@ -480,4 +489,28 @@ instance (Predicate (FACTOR a) KR.Rational, Satisfying (FACTOR a) s)
   => Satisfy (FACTOR (a :: KR.Rational)) (s :: KR.Rational) where
   type IsSatisfied (FACTOR a) s = IsSatisfied (EQ 1) (KR.Den (s KR./ a))
   type SatisfiesCtx (FACTOR a) s = Satisfies (EQ 1) (KR.Den (s KR./ a))
+
+--------------------------------------------------------------------------------
+
+-- | Whether the scrutinee can be represented exactly as a decimal number.
+data DECIMAL
+
+instance Predicate DECIMAL Lits.Natural where
+  satisfy = Right . Satisfied
+
+instance Predicate DECIMAL KI.Integer where
+  satisfy = Right . Satisfied
+
+instance Predicate DECIMAL KR.Rational where
+  satisfy s = KR.termination (Left (Unsatisfied s)) (Right (Satisfied s)) s
+
+instance Lits.KnownNat s => Satisfy DECIMAL (s :: Lits.Natural) where
+  type IsSatisfied DECIMAL s = 'True
+
+instance KI.KnownInteger s => Satisfy DECIMAL (s :: KI.Integer) where
+  type IsSatisfied DECIMAL s = 'True
+
+instance Satisfying DECIMAL s => Satisfy DECIMAL (s :: KR.Rational) where
+  type IsSatisfied DECIMAL s = KR.Terminates s
+  type SatisfiesCtx DECIMAL s = KR.Terminates s ~ 'True
 

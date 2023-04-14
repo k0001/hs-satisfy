@@ -44,11 +44,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1681231253,
-        "narHash": "sha256-n1kA9OKWiDjW0YqbeissACOL80xe7lB2+tWhK+JdGuE=",
+        "lastModified": 1681460275,
+        "narHash": "sha256-0zWmb7u7c0y0arId1gr95kVWB7vVD8i8Tg/VBQ0gg1E=",
         "owner": "k0001",
         "repo": "hs-kind",
-        "rev": "dc06f63663909f76cd97a9010deda90a599a2fec",
+        "rev": "19fe24cf92743470af0a6af6aa923bcc029177e8",
         "type": "github"
       },
       "original": {
