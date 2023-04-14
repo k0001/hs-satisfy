@@ -28,6 +28,7 @@ module Satisfy {--}
   , GE
     -- * Arithmethic predicates
   , FACTOR
+  , DECIMAL
   ) --}
   where
 
