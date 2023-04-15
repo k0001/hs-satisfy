@@ -38,12 +38,14 @@ import Data.Type.Bool
 import Data.Type.Equality
 import Data.Type.Ord
 import Data.Void
+import GHC.Real (Ratio((:%)))
 import GHC.TypeLits qualified as Lits
 import GHC.TypeLits.Singletons qualified as Lits
 import KindInteger qualified as KI
 import KindRational qualified as KR
 import Prelude hiding (Ordering(..))
 import Prelude as P
+import Unsafe.Coerce (unsafeCoerce)
 
 --------------------------------------------------------------------------------
 
@@ -445,6 +447,19 @@ type NE a = NOT (EQ a)
 -- that @s@ is a multiple of @a@.
 data FACTOR a
 type role FACTOR nominal
+
+instance forall a. PredicateCtx (FACTOR a) KR.Rational
+  => Predicate (FACTOR (a :: KR.Rational)) KR.Rational where
+  type PredicateCtx (FACTOR a) KR.Rational =
+    (KR.KnownRational a, a KR./= (0 KR./ 1))
+  satisfy (s :: Sing s)
+    | _ :% 1 <- KR.toPrelude (KR.fromSRational s) / a -- '/' normalizes
+    , Refl <- unsafeCoerce Refl :: KR.Den (s KR./ a) :~: 1 -- Meh.
+    = Right (Satisfied s)
+    | Refl <- unsafeCoerce Refl :: IsSatisfied (FACTOR a) s :~: 'False
+    = Left (Unsatisfied s)
+    where
+      a = KR.toPrelude (KR.fromSRational (KR.rationalSing @a))
 
 instance (Predicate (FACTOR a) Lits.Natural, Satisfying (FACTOR a) s)
   => Satisfy (FACTOR (a :: Lits.Natural)) (s :: Lits.Natural) where
