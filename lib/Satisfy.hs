@@ -241,8 +241,8 @@ infixl 6 `XNOR`
 
 -- | Scrutinee @s@ satisfies predicate @'EQ' a@ when @s == a@.
 --
--- Notice that “equality” here refers to arithmetic equality as seen in
--- `Eq`, `Ord` or `Compare`, and not to propositional equality as seen
+-- Notice that “equality” here refers to arithmetic equality as seen
+-- in `Ord` or `Compare`, and not to propositional equality as seen
 -- in `Refl`, `HRefl` or "Data.Singletons.Decide".
 data EQ a
 type role EQ nominal
