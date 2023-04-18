@@ -5,7 +5,7 @@
     nixpkgs.url =
       "github:NixOS/nixpkgs?rev=21eda9bc80bef824a037582b1e5a43ba74e92daa";
     flake-parts.url = "github:hercules-ci/flake-parts";
-    hs_kind.url = "github:k0001/hs-kind";
+    hs_kind.url = "github:k0001/hs-kind?rev=19fe24cf92743470af0a6af6aa923bcc029177e8";
     hs_kind.inputs.nixpkgs.follows = "nixpkgs";
   };
 

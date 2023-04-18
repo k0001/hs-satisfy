@@ -39,10 +39,11 @@ import Data.Type.Equality
 import Data.Type.Ord
 import Data.Void
 import GHC.Real (Ratio((:%)))
-import GHC.TypeLits qualified as Lits
-import GHC.TypeLits.Singletons qualified as Lits
-import KindInteger qualified as KI
-import KindRational qualified as KR
+import GHC.TypeLits qualified as L
+import GHC.TypeLits.Singletons qualified as L
+import KindInteger qualified as I
+import KindRational (type (/), type (/=))
+import KindRational qualified as R
 import Prelude hiding (Ordering(..))
 import Prelude as P
 import Unsafe.Coerce (unsafeCoerce)
@@ -200,25 +201,6 @@ instance (Predicate p k, Predicate q k) => Predicate (AND p q) k where
 
 --
 
-{-
--- | Alternative spelling for the 'AND' predicate.
-instance (Predicate p k, Predicate q k, Satisfying (p, q) s)
-  => Satisfy (p, q) (s :: k) where
-  type IsSatisfied (p, q) s = IsSatisfied p s && IsSatisfied q s
-  type SatisfiesCtx (p, q) s = (Satisfies p s, Satisfies q s)
-
--- | Alternative spelling for the 'AND' predicate.
-instance (Predicate p k, Predicate q k) => Predicate (p, q) k where
-  type PredicateCtx (p, q) k = (Predicate p k, Predicate q k)
-  satisfy (s :: Sing s) = case (satisfy @p s, satisfy @q s) of
-    (Left  Unsatisfied{}, Left  Unsatisfied{}) -> Left  (Unsatisfied s)
-    (Left  Unsatisfied{}, Right Satisfied{}  ) -> Left  (Unsatisfied s)
-    (Right Satisfied{}  , Left  Unsatisfied{}) -> Left  (Unsatisfied s)
-    (Right Satisfied{}  , Right Satisfied{}  ) -> Right (Satisfied   s)
--}
-
---
-
 -- | Scrutinee @s@ satisfies predicate @p '`OR`' p@ whenever scrutinee
 -- @s@ satisfies at least one of predicates @p@ and @q@.
 data p `OR` q
@@ -237,25 +219,6 @@ instance (Predicate p k, Predicate q k) => Predicate (OR p q) k where
     (Left  Unsatisfied{}, Right Satisfied  {}) -> Right (Satisfied   s)
     (Right Satisfied  {}, Left  Unsatisfied{}) -> Right (Satisfied   s)
     (Right Satisfied  {}, Right Satisfied  {}) -> Right (Satisfied   s)
-
---
-
-{-
--- | Alternative spelling for the 'OR' predicate.
-instance (Predicate p k, Predicate q k, Satisfying (Either p q) s)
-  => Satisfy (Either p q) (s :: k) where
-  type IsSatisfied (Either p q) s = IsSatisfied p s || IsSatisfied q s
-  type SatisfiesCtx (Either p q) s = (Satisfying p s, Satisfying q s)
-
--- | Alternative spelling for the 'OR' predicate.
-instance (Predicate p k, Predicate q k) => Predicate (Either p q) k where
-  type PredicateCtx (Either p q) k = (Predicate p k, Predicate q k)
-  satisfy (s :: Sing s) = case (satisfy @p s, satisfy @q s) of
-    (Left  Unsatisfied{}, Left  Unsatisfied{}) -> Left  (Unsatisfied s)
-    (Left  Unsatisfied{}, Right Satisfied  {}) -> Right (Satisfied   s)
-    (Right Satisfied  {}, Left  Unsatisfied{}) -> Right (Satisfied   s)
-    (Right Satisfied  {}, Right Satisfied  {}) -> Right (Satisfied   s)
--}
 
 --
 
@@ -278,7 +241,7 @@ infixl 6 `XNOR`
 
 -- | Scrutinee @s@ satisfies predicate @'EQ' a@ when @s == a@.
 --
--- Notice that “equality” here refers to boolean equality as seen in
+-- Notice that “equality” here refers to arithmetic equality as seen in
 -- `Eq`, `Ord` or `Compare`, and not to propositional equality as seen
 -- in `Refl`, `HRefl` or "Data.Singletons.Decide".
 data EQ a
@@ -289,42 +252,139 @@ instance (Predicate (EQ a) k, Satisfying (EQ a) s)
   type IsSatisfied (EQ a) s = OrdCond (Compare s a) 'False 'True 'False
   type SatisfiesCtx (EQ a) s = Compare s a ~ 'P.EQ
 
-instance Lits.KnownNat a => Predicate (EQ a) Lits.Natural where
-  type PredicateCtx (EQ a) Lits.Natural = Lits.KnownNat a
-  satisfy (s :: Sing s) = Lits.withKnownNat s $
-    case Lits.cmpNat (Proxy @s) (Proxy @a) of
+instance (Predicate (EQ a) I.Integer, Satisfying (EQ a) s)
+  => Satisfy (EQ (a :: L.Natural)) (s :: I.Integer) where
+  type IsSatisfied (EQ a) s = OrdCond (Compare s (I.P a)) 'False 'True 'False
+  type SatisfiesCtx (EQ a) s = Compare s (I.P a) ~ 'P.EQ
+
+instance (Predicate (EQ a) R.Rational, Satisfying (EQ a) s)
+  => Satisfy (EQ (a :: L.Natural)) (s :: R.Rational) where
+  type IsSatisfied (EQ a) s = OrdCond (Compare s (a / 1)) 'False 'True 'False
+  type SatisfiesCtx (EQ a) s = Compare s (a / 1) ~ 'P.EQ
+
+instance (Predicate (EQ a) L.Natural, Satisfying (EQ a) s)
+  => Satisfy (EQ (a :: I.Integer)) (s :: L.Natural) where
+  type IsSatisfied (EQ a) s = OrdCond (Compare (I.P s) a) 'False 'True 'False
+  type SatisfiesCtx (EQ a) s = Compare (I.P s) a ~ 'P.EQ
+
+instance (Predicate (EQ a) R.Rational, Satisfying (EQ a) s)
+  => Satisfy (EQ (a :: I.Integer)) (s :: R.Rational) where
+  type IsSatisfied (EQ a) s = OrdCond (Compare s (a / 1)) 'False 'True 'False
+  type SatisfiesCtx (EQ a) s = Compare s (a / 1) ~ 'P.EQ
+
+instance (Predicate (EQ a) L.Natural, Satisfying (EQ a) s)
+  => Satisfy (EQ (a :: R.Rational)) (s :: L.Natural) where
+  type IsSatisfied (EQ a) s = OrdCond (Compare (s / 1) a) 'False 'True 'False
+  type SatisfiesCtx (EQ a) s = Compare (s / 1) a ~ 'P.EQ
+
+instance (Predicate (EQ a) I.Integer, Satisfying (EQ a) s)
+  => Satisfy (EQ (a :: R.Rational)) (s :: I.Integer) where
+  type IsSatisfied (EQ a) s = OrdCond (Compare (s / 1) a) 'False 'True 'False
+  type SatisfiesCtx (EQ a) s = Compare (s / 1) a ~ 'P.EQ
+
+instance PredicateCtx (EQ a) L.Natural
+  => Predicate (EQ (a :: L.Natural)) L.Natural where
+  type PredicateCtx (EQ a) L.Natural = L.KnownNat a
+  satisfy (s :: Sing s) = L.withKnownNat s $
+    case L.cmpNat (Proxy @s) (Proxy @a) of
       LTI -> Left  (Unsatisfied s)
       EQI -> Right (Satisfied   s)
       GTI -> Left  (Unsatisfied s)
 
-instance Lits.KnownChar a => Predicate (EQ a) Char where
-  type PredicateCtx (EQ a) Char = Lits.KnownChar a
-  satisfy (s :: Sing s) = Lits.withKnownChar s $
-    case Lits.cmpChar (Proxy @s) (Proxy @a) of
+instance PredicateCtx (EQ a) I.Integer
+  => Predicate (EQ (a :: L.Natural)) I.Integer where
+  type PredicateCtx (EQ a) I.Integer = (L.KnownNat a, R.KnownRational (a/1))
+  satisfy (s :: Sing s) = I.withKnownInteger s $
+    case I.cmpInteger (Proxy @s) (Proxy @(I.P a)) of
       LTI -> Left  (Unsatisfied s)
       EQI -> Right (Satisfied   s)
       GTI -> Left  (Unsatisfied s)
 
-instance Lits.KnownSymbol a => Predicate (EQ a) Lits.Symbol where
-  type PredicateCtx (EQ a) Lits.Symbol = Lits.KnownSymbol a
-  satisfy (s :: Sing s) = Lits.withKnownSymbol s $
-    case Lits.cmpSymbol (Proxy @s) (Proxy @a) of
+instance PredicateCtx (EQ a) R.Rational
+  => Predicate (EQ (a :: L.Natural)) R.Rational where
+  type PredicateCtx (EQ a) R.Rational = R.KnownRational (a / 1)
+  satisfy (s :: Sing s) = R.withKnownRational s $
+    case R.cmpRational (Proxy @s) (Proxy @(a / 1)) of
       LTI -> Left  (Unsatisfied s)
       EQI -> Right (Satisfied   s)
       GTI -> Left  (Unsatisfied s)
 
-instance KI.KnownInteger a => Predicate (EQ a) KI.Integer where
-  type PredicateCtx (EQ a) KI.Integer = KI.KnownInteger a
-  satisfy (s :: Sing s) = KI.withKnownInteger s $
-    case KI.cmpInteger (Proxy @s) (Proxy @a) of
+instance PredicateCtx (EQ a) L.Natural
+  => Predicate (EQ (a :: I.Integer)) L.Natural where
+  type PredicateCtx (EQ a) L.Natural = I.KnownInteger a
+  satisfy (s :: Sing s) = L.withKnownNat s $
+    case I.cmpInteger (Proxy @(I.P s)) (Proxy @a) of
       LTI -> Left  (Unsatisfied s)
       EQI -> Right (Satisfied   s)
       GTI -> Left  (Unsatisfied s)
 
-instance KR.KnownRational a => Predicate (EQ a) KR.Rational where
-  type PredicateCtx (EQ a) KR.Rational = KR.KnownRational a
-  satisfy (s :: Sing s) = KR.withKnownRational s $
-    case KR.cmpRational (Proxy @s) (Proxy @a) of
+instance PredicateCtx (EQ a) I.Integer
+  => Predicate (EQ (a :: I.Integer)) I.Integer where
+  type PredicateCtx (EQ a) I.Integer = I.KnownInteger a
+  satisfy (s :: Sing s) = I.withKnownInteger s $
+    case I.cmpInteger (Proxy @s) (Proxy @a) of
+      LTI -> Left  (Unsatisfied s)
+      EQI -> Right (Satisfied   s)
+      GTI -> Left  (Unsatisfied s)
+
+instance PredicateCtx (EQ a) R.Rational
+  => Predicate (EQ (a :: I.Integer)) R.Rational where
+  type PredicateCtx (EQ a) R.Rational = R.KnownRational (a/1)
+  satisfy (s :: Sing s) = R.withKnownRational s $
+    case R.cmpRational (Proxy @s) (Proxy @(a / 1)) of
+      LTI -> Left  (Unsatisfied s)
+      EQI -> Right (Satisfied   s)
+      GTI -> Left  (Unsatisfied s)
+
+instance PredicateCtx (EQ a) L.Natural
+  => Predicate (EQ (a :: R.Rational)) L.Natural where
+  type PredicateCtx (EQ a) L.Natural = R.KnownRational a
+  satisfy = \(s :: Sing s) ->
+      case compare (toRational (fromSing s)) ra of
+        P.LT -> case unsafeCoerce Refl :: Compare (s/1) a :~: 'P.LT of
+          Refl -> Left (Unsatisfied s)
+        P.EQ -> case unsafeCoerce Refl :: Compare (s/1) a :~: 'P.EQ of
+          Refl -> Right (Satisfied s)
+        P.GT -> case unsafeCoerce Refl :: Compare (s/1) a :~: 'P.GT of
+          Refl -> Left (Unsatisfied s)
+    where
+      ra = R.toPrelude (R.fromSRational (R.rationalSing @a))
+
+instance PredicateCtx (EQ a) I.Integer
+  => Predicate (EQ (a :: R.Rational)) I.Integer where
+  type PredicateCtx (EQ a) I.Integer = R.KnownRational a
+  satisfy = \(s :: Sing s) ->
+      case compare (toRational (I.toPrelude (I.fromSInteger s))) ra of
+        P.LT -> case unsafeCoerce Refl :: Compare (s/1) a :~: 'P.LT of
+          Refl -> Left (Unsatisfied s)
+        P.EQ -> case unsafeCoerce Refl :: Compare (s/1) a :~: 'P.EQ of
+          Refl -> Right (Satisfied s)
+        P.GT -> case unsafeCoerce Refl :: Compare (s/1) a :~: 'P.GT of
+          Refl -> Left (Unsatisfied s)
+    where
+      ra = R.toPrelude (R.fromSRational (R.rationalSing @a))
+
+instance PredicateCtx (EQ a) R.Rational
+  => Predicate (EQ (a :: R.Rational)) R.Rational where
+  type PredicateCtx (EQ a) R.Rational = R.KnownRational a
+  satisfy (s :: Sing s) = R.withKnownRational s $
+    case R.cmpRational (Proxy @s) (Proxy @a) of
+      LTI -> Left  (Unsatisfied s)
+      EQI -> Right (Satisfied   s)
+      GTI -> Left  (Unsatisfied s)
+
+instance L.KnownChar a => Predicate (EQ a) Char where
+  type PredicateCtx (EQ a) Char = L.KnownChar a
+  satisfy (s :: Sing s) = L.withKnownChar s $
+    case L.cmpChar (Proxy @s) (Proxy @a) of
+      LTI -> Left  (Unsatisfied s)
+      EQI -> Right (Satisfied   s)
+      GTI -> Left  (Unsatisfied s)
+
+instance L.KnownSymbol a => Predicate (EQ a) L.Symbol where
+  type PredicateCtx (EQ a) L.Symbol = L.KnownSymbol a
+  satisfy (s :: Sing s) = L.withKnownSymbol s $
+    case L.cmpSymbol (Proxy @s) (Proxy @a) of
       LTI -> Left  (Unsatisfied s)
       EQI -> Right (Satisfied   s)
       GTI -> Left  (Unsatisfied s)
@@ -340,101 +400,149 @@ instance (Predicate (LT a) k, Satisfying (LT a) s)
   type IsSatisfied (LT a) s = OrdCond (Compare s a) 'True 'False 'False
   type SatisfiesCtx (LT a) s = Compare s a ~ 'P.LT
 
-instance Lits.KnownNat a => Predicate (LT a) Lits.Natural where
-  type PredicateCtx (LT a) Lits.Natural = Lits.KnownNat a
-  satisfy (s :: Sing s) = Lits.withKnownNat s $
-    case Lits.cmpNat (Proxy @s) (Proxy @a) of
+instance (Predicate (LT a) I.Integer, Satisfying (LT a) s)
+  => Satisfy (LT (a :: L.Natural)) (s :: I.Integer) where
+  type IsSatisfied (LT a) s = OrdCond (Compare s (I.P a)) 'True 'False 'False
+  type SatisfiesCtx (LT a) s = Compare s (I.P a) ~ 'P.LT
+
+instance (Predicate (LT a) R.Rational, Satisfying (LT a) s)
+  => Satisfy (LT (a :: L.Natural)) (s :: R.Rational) where
+  type IsSatisfied (LT a) s = OrdCond (Compare s (a / 1)) 'True 'False 'False
+  type SatisfiesCtx (LT a) s = Compare s (a / 1) ~ 'P.LT
+
+instance (Predicate (LT a) L.Natural, Satisfying (LT a) s)
+  => Satisfy (LT (a :: I.Integer)) (s :: L.Natural) where
+  type IsSatisfied (LT a) s = OrdCond (Compare (I.P s) a) 'True 'False 'False
+  type SatisfiesCtx (LT a) s = Compare (I.P s) a ~ 'P.LT
+
+instance (Predicate (LT a) R.Rational, Satisfying (LT a) s)
+  => Satisfy (LT (a :: I.Integer)) (s :: R.Rational) where
+  type IsSatisfied (LT a) s = OrdCond (Compare s (a / 1)) 'True 'False 'False
+  type SatisfiesCtx (LT a) s = Compare s (a / 1) ~ 'P.LT
+
+instance (Predicate (LT a) L.Natural, Satisfying (LT a) s)
+  => Satisfy (LT (a :: R.Rational)) (s :: L.Natural) where
+  type IsSatisfied (LT a) s = OrdCond (Compare (s / 1) a) 'True 'False 'False
+  type SatisfiesCtx (LT a) s = Compare (s / 1) a ~ 'P.LT
+
+instance (Predicate (LT a) I.Integer, Satisfying (LT a) s)
+  => Satisfy (LT (a :: R.Rational)) (s :: I.Integer) where
+  type IsSatisfied (LT a) s = OrdCond (Compare (s / 1) a) 'True 'False 'False
+  type SatisfiesCtx (LT a) s = Compare (s / 1) a ~ 'P.LT
+
+instance PredicateCtx (LT a) L.Natural
+  => Predicate (LT (a :: L.Natural)) L.Natural where
+  type PredicateCtx (LT a) L.Natural = L.KnownNat a
+  satisfy (s :: Sing s) = L.withKnownNat s $
+    case L.cmpNat (Proxy @s) (Proxy @a) of
       LTI -> Right (Satisfied   s)
       EQI -> Left  (Unsatisfied s)
       GTI -> Left  (Unsatisfied s)
 
-instance Lits.KnownChar a => Predicate (LT a) Char where
-  type PredicateCtx (LT a) Char = Lits.KnownChar a
-  satisfy (s :: Sing s) = Lits.withKnownChar s $
-    case Lits.cmpChar (Proxy @s) (Proxy @a) of
+instance PredicateCtx (LT a) I.Integer
+  => Predicate (LT (a :: L.Natural)) I.Integer where
+  type PredicateCtx (LT a) I.Integer = (L.KnownNat a, R.KnownRational (a/1))
+  satisfy (s :: Sing s) = I.withKnownInteger s $
+    case I.cmpInteger (Proxy @s) (Proxy @(I.P a)) of
       LTI -> Right (Satisfied   s)
       EQI -> Left  (Unsatisfied s)
       GTI -> Left  (Unsatisfied s)
 
-instance Lits.KnownSymbol a => Predicate (LT a) Lits.Symbol where
-  type PredicateCtx (LT a) Lits.Symbol = Lits.KnownSymbol a
-  satisfy (s :: Sing s) = Lits.withKnownSymbol s $
-    case Lits.cmpSymbol (Proxy @s) (Proxy @a) of
+instance PredicateCtx (LT a) R.Rational
+  => Predicate (LT (a :: L.Natural)) R.Rational where
+  type PredicateCtx (LT a) R.Rational = R.KnownRational (a / 1)
+  satisfy (s :: Sing s) = R.withKnownRational s $
+    case R.cmpRational (Proxy @s) (Proxy @(a / 1)) of
       LTI -> Right (Satisfied   s)
       EQI -> Left  (Unsatisfied s)
       GTI -> Left  (Unsatisfied s)
 
-instance KI.KnownInteger a => Predicate (LT a) KI.Integer where
-  type PredicateCtx (LT a) KI.Integer = KI.KnownInteger a
-  satisfy (s :: Sing s) = KI.withKnownInteger s $
-    case KI.cmpInteger (Proxy @s) (Proxy @a) of
+instance PredicateCtx (LT a) L.Natural
+  => Predicate (LT (a :: I.Integer)) L.Natural where
+  type PredicateCtx (LT a) L.Natural = I.KnownInteger a
+  satisfy (s :: Sing s) = L.withKnownNat s $
+    case I.cmpInteger (Proxy @(I.P s)) (Proxy @a) of
       LTI -> Right (Satisfied   s)
       EQI -> Left  (Unsatisfied s)
       GTI -> Left  (Unsatisfied s)
 
-instance KR.KnownRational a => Predicate (LT a) KR.Rational where
-  type PredicateCtx (LT a) KR.Rational = KR.KnownRational a
-  satisfy (s :: Sing s) = KR.withKnownRational s $
-    case KR.cmpRational (Proxy @s) (Proxy @a) of
+instance PredicateCtx (LT a) I.Integer
+  => Predicate (LT (a :: I.Integer)) I.Integer where
+  type PredicateCtx (LT a) I.Integer = I.KnownInteger a
+  satisfy (s :: Sing s) = I.withKnownInteger s $
+    case I.cmpInteger (Proxy @s) (Proxy @a) of
       LTI -> Right (Satisfied   s)
       EQI -> Left  (Unsatisfied s)
       GTI -> Left  (Unsatisfied s)
 
---
-
--- | Scrutinee @s@ satisfies predicate @'GT' a@ when @s > a@.
-data GT a
-type role GT nominal
-
-instance (Predicate (GT a) k, Satisfying (GT a) s)
-  => Satisfy (GT (a :: k)) (s :: k) where
-  type IsSatisfied (GT a) s = OrdCond (Compare s a) 'False 'False 'True
-  type SatisfiesCtx (GT a) s = Compare s a ~ 'P.GT
-
-instance Lits.KnownNat a => Predicate (GT a) Lits.Natural where
-  type PredicateCtx (GT a) Lits.Natural = Lits.KnownNat a
-  satisfy (s :: Sing s) = Lits.withKnownNat s $
-    case Lits.cmpNat (Proxy @s) (Proxy @a) of
-      LTI -> Left  (Unsatisfied s)
+instance PredicateCtx (LT a) R.Rational
+  => Predicate (LT (a :: I.Integer)) R.Rational where
+  type PredicateCtx (LT a) R.Rational = R.KnownRational (a/1)
+  satisfy (s :: Sing s) = R.withKnownRational s $
+    case R.cmpRational (Proxy @s) (Proxy @(a / 1)) of
+      LTI -> Right (Satisfied   s)
       EQI -> Left  (Unsatisfied s)
-      GTI -> Right (Satisfied   s)
+      GTI -> Left  (Unsatisfied s)
 
-instance Lits.KnownChar a => Predicate (GT a) Char where
-  type PredicateCtx (GT a) Char = Lits.KnownChar a
-  satisfy (s :: Sing s) = Lits.withKnownChar s $
-    case Lits.cmpChar (Proxy @s) (Proxy @a) of
-      LTI -> Left  (Unsatisfied s)
-      EQI -> Left  (Unsatisfied s)
-      GTI -> Right (Satisfied   s)
+instance PredicateCtx (LT a) L.Natural
+  => Predicate (LT (a :: R.Rational)) L.Natural where
+  type PredicateCtx (LT a) L.Natural = R.KnownRational a
+  satisfy = \(s :: Sing s) ->
+      case compare (toRational (fromSing s)) ra of
+        P.LT -> case unsafeCoerce Refl :: Compare (s/1) a :~: 'P.LT of
+          Refl -> Right (Satisfied s)
+        P.EQ -> case unsafeCoerce Refl :: Compare (s/1) a :~: 'P.EQ of
+          Refl -> Left (Unsatisfied s)
+        P.GT -> case unsafeCoerce Refl :: Compare (s/1) a :~: 'P.GT of
+          Refl -> Left (Unsatisfied s)
+    where
+      ra = R.toPrelude (R.fromSRational (R.rationalSing @a))
 
-instance Lits.KnownSymbol a => Predicate (GT a) Lits.Symbol where
-  type PredicateCtx (GT a) Lits.Symbol = Lits.KnownSymbol a
-  satisfy (s :: Sing s) = Lits.withKnownSymbol s $
-    case Lits.cmpSymbol (Proxy @s) (Proxy @a) of
-      LTI -> Left  (Unsatisfied s)
-      EQI -> Left  (Unsatisfied s)
-      GTI -> Right (Satisfied   s)
+instance PredicateCtx (LT a) I.Integer
+  => Predicate (LT (a :: R.Rational)) I.Integer where
+  type PredicateCtx (LT a) I.Integer = R.KnownRational a
+  satisfy = \(s :: Sing s) ->
+      case compare (toRational (I.toPrelude (I.fromSInteger s))) ra of
+        P.LT -> case unsafeCoerce Refl :: Compare (s/1) a :~: 'P.LT of
+          Refl -> Right (Satisfied s)
+        P.EQ -> case unsafeCoerce Refl :: Compare (s/1) a :~: 'P.EQ of
+          Refl -> Left (Unsatisfied s)
+        P.GT -> case unsafeCoerce Refl :: Compare (s/1) a :~: 'P.GT of
+          Refl -> Left (Unsatisfied s)
+    where
+      ra = R.toPrelude (R.fromSRational (R.rationalSing @a))
 
-instance KI.KnownInteger a => Predicate (GT a) KI.Integer where
-  type PredicateCtx (GT a) KI.Integer = KI.KnownInteger a
-  satisfy (s :: Sing s) = KI.withKnownInteger s $
-    case KI.cmpInteger (Proxy @s) (Proxy @a) of
-      LTI -> Left  (Unsatisfied s)
+instance PredicateCtx (LT a) R.Rational
+  => Predicate (LT (a :: R.Rational)) R.Rational where
+  type PredicateCtx (LT a) R.Rational = R.KnownRational a
+  satisfy (s :: Sing s) = R.withKnownRational s $
+    case R.cmpRational (Proxy @s) (Proxy @a) of
+      LTI -> Right (Satisfied   s)
       EQI -> Left  (Unsatisfied s)
-      GTI -> Right (Satisfied   s)
+      GTI -> Left  (Unsatisfied s)
 
-instance KR.KnownRational a => Predicate (GT a) KR.Rational where
-  type PredicateCtx (GT a) KR.Rational = KR.KnownRational a
-  satisfy (s :: Sing s) = KR.withKnownRational s $
-    case KR.cmpRational (Proxy @s) (Proxy @a) of
-      LTI -> Left  (Unsatisfied s)
+instance L.KnownChar a => Predicate (LT a) Char where
+  type PredicateCtx (LT a) Char = L.KnownChar a
+  satisfy (s :: Sing s) = L.withKnownChar s $
+    case L.cmpChar (Proxy @s) (Proxy @a) of
+      LTI -> Right (Satisfied   s)
       EQI -> Left  (Unsatisfied s)
-      GTI -> Right (Satisfied   s)
+      GTI -> Left  (Unsatisfied s)
+
+instance L.KnownSymbol a => Predicate (LT a) L.Symbol where
+  type PredicateCtx (LT a) L.Symbol = L.KnownSymbol a
+  satisfy (s :: Sing s) = L.withKnownSymbol s $
+    case L.cmpSymbol (Proxy @s) (Proxy @a) of
+      LTI -> Right (Satisfied   s)
+      EQI -> Left  (Unsatisfied s)
+      GTI -> Left  (Unsatisfied s)
 
 --
 
 -- | Scrutinee @s@ satisfies predicate @'LE' a@ when @s <= a@.
-type LE a = NOT (GT a)
+type LE a = EQ a `OR` LT a
+-- | Scrutinee @s@ satisfies predicate @'GT' a@ when @s > a@.
+type GT a = NOT (LE a)
 -- | Scrutinee @s@ satisfies predicate @'GE' a@ when @s >= a@.
 type GE a = NOT (LT a)
 -- | Scrutinee @s@ satisfies predicate @'NE' a@ when @s /= a@.
@@ -448,85 +556,85 @@ type NE a = NOT (EQ a)
 data FACTOR a
 type role FACTOR nominal
 
-instance forall a. PredicateCtx (FACTOR a) KR.Rational
-  => Predicate (FACTOR (a :: KR.Rational)) KR.Rational where
-  type PredicateCtx (FACTOR a) KR.Rational =
-    (KR.KnownRational a, a KR./= (0 KR./ 1))
+instance forall a. PredicateCtx (FACTOR a) R.Rational
+  => Predicate (FACTOR (a :: R.Rational)) R.Rational where
+  type PredicateCtx (FACTOR a) R.Rational =
+    (R.KnownRational a, a /= (0 / 1))
   satisfy (s :: Sing s)
-    | _ :% 1 <- KR.toPrelude (KR.fromSRational s) / a -- '/' normalizes
-    , Refl <- unsafeCoerce Refl :: KR.Den (s KR./ a) :~: 1 -- Meh.
+    | _ :% 1 <- R.toPrelude (R.fromSRational s) / a -- '/' normalizes
+    , Refl <- unsafeCoerce Refl :: R.Den (s / a) :~: 1 -- Meh.
     = Right (Satisfied s)
     | Refl <- unsafeCoerce Refl :: IsSatisfied (FACTOR a) s :~: 'False
     = Left (Unsatisfied s)
     where
-      a = KR.toPrelude (KR.fromSRational (KR.rationalSing @a))
+      a = R.toPrelude (R.fromSRational (R.rationalSing @a))
 
-instance (Predicate (FACTOR a) Lits.Natural, Satisfying (FACTOR a) s)
-  => Satisfy (FACTOR (a :: Lits.Natural)) (s :: Lits.Natural) where
-  type IsSatisfied (FACTOR a) s = IsSatisfied (EQ 0) (Lits.Mod s a)
-  type SatisfiesCtx (FACTOR a) s = Satisfies (EQ 0) (Lits.Mod s a)
+instance (Predicate (FACTOR a) L.Natural, Satisfying (FACTOR a) s)
+  => Satisfy (FACTOR (a :: L.Natural)) (s :: L.Natural) where
+  type IsSatisfied (FACTOR a) s = IsSatisfied (EQ 0) (L.Mod s a)
+  type SatisfiesCtx (FACTOR a) s = Satisfies (EQ 0) (L.Mod s a)
 
-instance (Predicate (FACTOR a) KI.Integer, Satisfying (FACTOR a) s)
-  => Satisfy (FACTOR (a :: Lits.Natural)) (s :: KI.Integer) where
-  type IsSatisfied (FACTOR a) s = IsSatisfied (FACTOR (KI.P a)) s
-  type SatisfiesCtx (FACTOR a) s = Satisfies (FACTOR (KI.P a)) s
+instance (Predicate (FACTOR a) I.Integer, Satisfying (FACTOR a) s)
+  => Satisfy (FACTOR (a :: L.Natural)) (s :: I.Integer) where
+  type IsSatisfied (FACTOR a) s = IsSatisfied (FACTOR (I.P a)) s
+  type SatisfiesCtx (FACTOR a) s = Satisfies (FACTOR (I.P a)) s
 
-instance (Predicate (FACTOR a) KR.Rational, Satisfying (FACTOR a) s)
-  => Satisfy (FACTOR (a :: Lits.Natural)) (s :: KR.Rational) where
-  type IsSatisfied (FACTOR a) s = IsSatisfied (FACTOR (a KR./ 1)) s
-  type SatisfiesCtx (FACTOR a) s = Satisfies (FACTOR (a KR./ 1)) s
+instance (Predicate (FACTOR a) R.Rational, Satisfying (FACTOR a) s)
+  => Satisfy (FACTOR (a :: L.Natural)) (s :: R.Rational) where
+  type IsSatisfied (FACTOR a) s = IsSatisfied (FACTOR (a / 1)) s
+  type SatisfiesCtx (FACTOR a) s = Satisfies (FACTOR (a / 1)) s
 
-instance (Predicate (FACTOR a) Lits.Natural, Satisfying (FACTOR a) s)
-  => Satisfy (FACTOR (a :: KI.Integer)) (s :: Lits.Natural) where
-  type IsSatisfied (FACTOR a) s = IsSatisfied (FACTOR a) (KI.P s)
-  type SatisfiesCtx (FACTOR a) s = Satisfies (FACTOR a) (KI.P s)
+instance (Predicate (FACTOR a) L.Natural, Satisfying (FACTOR a) s)
+  => Satisfy (FACTOR (a :: I.Integer)) (s :: L.Natural) where
+  type IsSatisfied (FACTOR a) s = IsSatisfied (FACTOR a) (I.P s)
+  type SatisfiesCtx (FACTOR a) s = Satisfies (FACTOR a) (I.P s)
 
-instance (Predicate (FACTOR a) KI.Integer, Satisfying (FACTOR a) s)
-  => Satisfy (FACTOR (a :: KI.Integer)) (s :: KI.Integer) where
-  type IsSatisfied (FACTOR a) s = IsSatisfied (EQ (KI.P 0)) (KI.Rem 'KI.RoundDown s a)
-  type SatisfiesCtx (FACTOR a) s = Satisfies (EQ (KI.P 0)) (KI.Rem 'KI.RoundDown s a)
+instance (Predicate (FACTOR a) I.Integer, Satisfying (FACTOR a) s)
+  => Satisfy (FACTOR (a :: I.Integer)) (s :: I.Integer) where
+  type IsSatisfied (FACTOR a) s = IsSatisfied (EQ (I.P 0)) (I.Rem 'I.RoundDown s a)
+  type SatisfiesCtx (FACTOR a) s = Satisfies (EQ (I.P 0)) (I.Rem 'I.RoundDown s a)
 
-instance (Predicate (FACTOR a) KR.Rational, Satisfying (FACTOR a) s)
-  => Satisfy (FACTOR (a :: KI.Integer)) (s :: KR.Rational) where
-  type IsSatisfied (FACTOR a) s = IsSatisfied (FACTOR (a KR./ 1)) s
-  type SatisfiesCtx (FACTOR a) s = Satisfies (FACTOR (a KR./ 1)) s
+instance (Predicate (FACTOR a) R.Rational, Satisfying (FACTOR a) s)
+  => Satisfy (FACTOR (a :: I.Integer)) (s :: R.Rational) where
+  type IsSatisfied (FACTOR a) s = IsSatisfied (FACTOR (a / 1)) s
+  type SatisfiesCtx (FACTOR a) s = Satisfies (FACTOR (a / 1)) s
 
-instance (Predicate (FACTOR a) Lits.Natural, Satisfying (FACTOR a) s)
-  => Satisfy (FACTOR (a :: KR.Rational)) (s :: Lits.Natural) where
-  type IsSatisfied (FACTOR a) s = IsSatisfied (FACTOR a) (s KR./ 1)
-  type SatisfiesCtx (FACTOR a) s = Satisfies (FACTOR a) (s KR./ 1)
+instance (Predicate (FACTOR a) L.Natural, Satisfying (FACTOR a) s)
+  => Satisfy (FACTOR (a :: R.Rational)) (s :: L.Natural) where
+  type IsSatisfied (FACTOR a) s = IsSatisfied (FACTOR a) (s / 1)
+  type SatisfiesCtx (FACTOR a) s = Satisfies (FACTOR a) (s / 1)
 
-instance (Predicate (FACTOR a) KI.Integer, Satisfying (FACTOR a) s)
-  => Satisfy (FACTOR (a :: KR.Rational)) (s :: KI.Integer) where
-  type IsSatisfied (FACTOR a) s = IsSatisfied (FACTOR a) (s KR./ 1)
-  type SatisfiesCtx (FACTOR a) s = Satisfies (FACTOR a) (s KR./ 1)
+instance (Predicate (FACTOR a) I.Integer, Satisfying (FACTOR a) s)
+  => Satisfy (FACTOR (a :: R.Rational)) (s :: I.Integer) where
+  type IsSatisfied (FACTOR a) s = IsSatisfied (FACTOR a) (s / 1)
+  type SatisfiesCtx (FACTOR a) s = Satisfies (FACTOR a) (s / 1)
 
-instance (Predicate (FACTOR a) KR.Rational, Satisfying (FACTOR a) s)
-  => Satisfy (FACTOR (a :: KR.Rational)) (s :: KR.Rational) where
-  type IsSatisfied (FACTOR a) s = IsSatisfied (EQ 1) (KR.Den (s KR./ a))
-  type SatisfiesCtx (FACTOR a) s = Satisfies (EQ 1) (KR.Den (s KR./ a))
+instance (Predicate (FACTOR a) R.Rational, Satisfying (FACTOR a) s)
+  => Satisfy (FACTOR (a :: R.Rational)) (s :: R.Rational) where
+  type IsSatisfied (FACTOR a) s = IsSatisfied (EQ 1) (R.Den (s / a))
+  type SatisfiesCtx (FACTOR a) s = Satisfies (EQ 1) (R.Den (s / a))
 
 --------------------------------------------------------------------------------
 
 -- | Whether the scrutinee can be represented exactly as a decimal number.
 data DECIMAL
 
-instance Predicate DECIMAL Lits.Natural where
+instance Predicate DECIMAL L.Natural where
   satisfy = Right . Satisfied
 
-instance Predicate DECIMAL KI.Integer where
+instance Predicate DECIMAL I.Integer where
   satisfy = Right . Satisfied
 
-instance Predicate DECIMAL KR.Rational where
-  satisfy s = KR.termination (Left (Unsatisfied s)) (Right (Satisfied s)) s
+instance Predicate DECIMAL R.Rational where
+  satisfy s = R.termination (Left (Unsatisfied s)) (Right (Satisfied s)) s
 
-instance Lits.KnownNat s => Satisfy DECIMAL (s :: Lits.Natural) where
+instance L.KnownNat s => Satisfy DECIMAL (s :: L.Natural) where
   type IsSatisfied DECIMAL s = 'True
 
-instance KI.KnownInteger s => Satisfy DECIMAL (s :: KI.Integer) where
+instance I.KnownInteger s => Satisfy DECIMAL (s :: I.Integer) where
   type IsSatisfied DECIMAL s = 'True
 
-instance Satisfying DECIMAL s => Satisfy DECIMAL (s :: KR.Rational) where
-  type IsSatisfied DECIMAL s = KR.Terminates s
-  type SatisfiesCtx DECIMAL s = KR.Terminates s ~ 'True
+instance Satisfying DECIMAL s => Satisfy DECIMAL (s :: R.Rational) where
+  type IsSatisfied DECIMAL s = R.Terminates s
+  type SatisfiesCtx DECIMAL s = R.Terminates s ~ 'True
 

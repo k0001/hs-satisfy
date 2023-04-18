@@ -54,6 +54,7 @@
       "original": {
         "owner": "k0001",
         "repo": "hs-kind",
+        "rev": "19fe24cf92743470af0a6af6aa923bcc029177e8",
         "type": "github"
       }
     },
